@@ -1,0 +1,43 @@
+{
+  "name": "di-container",
+  "version": "0.12.0",
+  "description": "small di container based off the Ember DI system",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha -R spec ./test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theporchrat/di-container.git"
+  },
+  "keywords": [
+    "Di",
+    "injection",
+    "container",
+    "dependency",
+    "ember"
+  ],
+  "devDependencies": {
+    "sinon-chai": "^2.5.0",
+    "chai": "^1.9.1",
+    "sinon": "^1.10.3",
+    "mocha": "^1.21.4",
+    "gulp-plumber": "^0.6.5",
+    "gulp": "^3.8.7",
+    "gulp-mocha": "^1.0.0",
+    "clank": "~0.12.0",
+    "lodash": "~2.4.1"
+  },
+  "author": "@theporchrat",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/theporchrat/di-container/issues"
+  },
+  "homepage": "https://github.com/theporchrat/di-container",
+  "dependencies": {
+    "lodash": "~2.4.1"
+  }
+}
