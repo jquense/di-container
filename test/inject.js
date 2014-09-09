@@ -16,7 +16,7 @@ describe( "when resolving Objects", function(){
     container = new Container()
   })  
 
-  it( 'should return an isntance', function(){
+  it( 'should return an instance', function(){
     var Thing = sinon.spy(function spy(){})
 
     container.register('thing:main', Thing)
@@ -141,7 +141,7 @@ describe( 'when resolving Items not in registry', function(){
 
     }).should.throw(TypeError);
   })
-  
+
 })
 
 describe( 'when injecting objects', function(){

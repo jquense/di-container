@@ -28,10 +28,10 @@ Container.prototype = {
       ? this.registry[name].factory
       : this._resolve(name)
 
-    // if ( !factory || typeof factory.extend !== 'function')
-    //   return factory
+     if ( !factory || typeof factory !== 'function' || options(this, name).instantiate === false)
+       return factory
 
-    // factory = this._injectedFactories[name] = factory.extend(injections(this, name))
+    factory = this._injectedFactories[name] = createInjectedFactory(this, name, factory)
 
     return factory
   },
@@ -47,7 +47,7 @@ Container.prototype = {
 
     inst = opts.instantiate === false 
          ? factory 
-         : create(factory, injections(this, name))
+         : createInjectedInstance(factory, injections(this, name))
   
     if ( opts.singleton !== false )
       this.instanceCache[name] = inst
@@ -79,12 +79,16 @@ Container.prototype = {
   }
 }
 
-function create(factory, injections){
+function createInjectedInstance(factory, injections){
+
+  if (typeof factory !== 'function')
+    _.extend({}, this, injections)
 
   if (typeof factory.create === 'function')
     return factory.create(injections)
 
   InjectedConstructor.prototype = factory.prototype
+
   return new InjectedConstructor
 
   function InjectedConstructor(){
@@ -94,6 +98,27 @@ function create(factory, injections){
   
 }
 
+function createInjectedFactory(ctx, name, factory){
+  var props = injections(ctx, name)
+
+  if( typeof factory.extend === 'function')
+    return factory.extend(props)
+
+  InjectedClass.prototype = Object.create(factory.prototype, {
+    constructor: {
+      value: factory,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  })
+
+  return InjectedClass
+
+  function InjectedClass(){
+    factory.apply(this, arguments)
+  }
+}
 
 function injections(ctx, name){
   var injections = []
