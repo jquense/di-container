@@ -2,7 +2,7 @@ var _ = require('lodash');
 
 module.exports = Container
 
-function Container (resolver){
+function Container (resolver, provider){
   this._resolve = resolver || _.noop
 
   this.registry = {}
@@ -28,10 +28,13 @@ Container.prototype = {
       ? this.registry[name].factory
       : this._resolve(name)
 
-     if ( !factory || typeof factory !== 'function' || options(this, name).instantiate === false)
-       return factory
+    if ( !factory || (typeof factory.extend !== 'function') || options(this, name).instantiate === false)
+     return factory
 
-    factory = this._injectedFactories[name] = createInjectedFactory(this, name, factory)
+    factory = this._injectedFactories[name] = createInjectedFactory(
+        factory
+      , propertyInjections(this, name)
+      , ctorInjections(this, name))
 
     return factory
   },
@@ -47,7 +50,10 @@ Container.prototype = {
 
     inst = opts.instantiate === false 
          ? factory 
-         : createInjectedInstance(factory, injections(this, name))
+         : createInjectedInstance(
+              factory
+            , propertyInjections(this, name)
+            , ctorInjections(this, name))
   
     if ( opts.singleton !== false )
       this.instanceCache[name] = inst
@@ -67,8 +73,16 @@ Container.prototype = {
 
     addOrPush(isForType 
       ? this._typeInjections 
-      : this._injections, name, { prop: prop, name: target })
+      : this._injections, 'prop', name, { prop: prop, name: target })
 
+  },
+
+  injectConstructor: function(name, prop, target){
+    var isForType = !_.contains(name, ':')
+
+    addOrPush(isForType 
+      ? this._typeInjections 
+      : this._injections, 'ctor', name, target)
   },
 
   optionsForType: function(type, options){
@@ -79,56 +93,44 @@ Container.prototype = {
   }
 }
 
-function createInjectedInstance(factory, injections){
+function createInjectedInstance(factory, propInjections, ctorInjections){
+
+  if (typeof factory.extend === 'function')
+    return new factory();
 
   if (typeof factory !== 'function')
-    _.extend({}, this, injections)
+    _.extend({}, this, propInjections)
 
   if (typeof factory.create === 'function')
-    return factory.create(injections)
+    return factory.create(propInjections)
 
   InjectedConstructor.prototype = factory.prototype
 
   return new InjectedConstructor
 
   function InjectedConstructor(){
-    _.extend(this, injections)
-    factory.apply(this, arguments)
+    _.extend(this, propInjections)
+    factory.apply(this, ctorInjections || [])
   }
   
 }
 
-function createInjectedFactory(ctx, name, factory){
-  var props = injections(ctx, name)
+function createInjectedFactory(factory, propInjections, ctorInjections){
+ 
+  if ( ctorInjections && ctorInjections.length ) 
+    _.extend(propInjections, { 
+      constructor: function InjectedConstructor(){
+        factory.apply(this, ctorInjections || [])
+      }
+    })
 
-  if( typeof factory.extend === 'function')
-    return factory.extend(props)
-
-  InjectedClass.prototype = Object.create(factory.prototype, {
-    constructor: {
-      value: factory,
-      enumerable: false,
-      writable: true,
-      configurable: true
-    }
-  })
-
-  return InjectedClass
-
-  function InjectedClass(){
-    factory.apply(this, arguments)
-  }
+  
+  return factory.extend(propInjections)
 }
 
-function injections(ctx, name){
-  var injections = []
-    , typeInjections = ctx._typeInjections[getType(name)];
 
-  if ( typeInjections) 
-    typeInjections = _.reject(typeInjections, { name: name })
-
-  injections = [].concat(typeInjections || [])
-  injections = injections.concat(ctx._injections[name] || [])
+function propertyInjections(ctx, name){
+  var injections = injectionsForVector(ctx, 'prop', name)
 
   injections = _.transform(injections, function(obj, inject){
     var factory = ctx.resolve(inject.name) 
@@ -143,6 +145,30 @@ function injections(ctx, name){
   return injections
 }
 
+function ctorInjections(ctx, name){
+  var injections = injectionsForVector(ctx, 'ctor', name)
+
+  return _.map(injections, function(target){
+    return ctx.resolve(target)
+  })
+}
+
+function injectionsForVector(ctx, vector, name){
+  var injections = []
+    , typeInjections = (ctx._typeInjections[getType(name)] || {})[vector]
+    , factoryInjections = (ctx._injections[name] || {})[vector];
+
+  if ( typeInjections) 
+    typeInjections = _.reject(typeInjections, { name: name })
+
+  injections = [].concat(typeInjections || [])
+  injections = injections.concat(factoryInjections || [])
+
+  return injections
+}
+
+
+
 function options(ctx, name){
   var typeOpts = ctx._typeOptions[getType(name)] || {}
     , options = ctx.registry[name] && ctx.registry[name].options
@@ -155,10 +181,10 @@ function getType(name){
   return name
 }
 
-function addOrPush(obj, key, val){
-  var existing = obj[key]
+function addOrPush(obj, injectionVector, key, val){
+  var existing = (obj[key] || (obj[key] = {}))[injectionVector]
 
-  obj[key] = existing 
+  obj[key][injectionVector] = existing 
     ? [].concat(existing, val) 
     : [].concat(val)
 }

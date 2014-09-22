@@ -27,6 +27,8 @@ describe( "when resolving Objects", function(){
   it( 'should use the create method if it exists', function(){
     var Thing = Clank.Object.extend({ prop: 'hello' })
 
+    Thing.extend = null
+
     sinon.spy(Thing, 'create')
 
     container.register('thing:main', Thing)
@@ -173,7 +175,7 @@ describe( 'when injecting objects', function(){
     var Thing = Clank.Object.extend({ prop: 'hello' })
       , Injectable =  Clank.Object.extend({})
 
-    container.register('thing:main', Thing)
+    container.register('thing:main', Thing) 
     container.register('thing:second', Thing)
 
     container.register('injectable:main', Injectable)
@@ -187,5 +189,18 @@ describe( 'when injecting objects', function(){
     container.resolve('thing:second').should.be.an.instanceOf(Thing)
       .and.have.property('injectable')
         .that.is.an.instanceOf(Injectable)
+  })
+
+  it.only( 'should return an instance with contructor injections', function(){
+    var Thing = sinon.spy(Clank.Object.extend({ prop: 'hello' }))
+      , injectable =  { injected: true }
+
+    container.register('thing:main', Thing)
+    container.register('injectable:main', injectable, { instantiate: false })
+
+    container.injectConstructor('thing:main', 'injectable', 'injectable:main')
+    container.resolve('thing:main').should.be.an.instanceOf(Thing)
+
+    Thing.should.have.been.calledWithExactly(injectable)
   })
 })
